@@ -1,0 +1,21 @@
+{
+  "mode": "jlpt_full",
+  "tong_examples": 35721,
+  "train_examples": 28576,
+  "eval_examples": 7145,
+  "theo_nguon": {
+    "grammar_qa": 5355,
+    "grammar_mcq": 1190,
+    "kanji_qa": 8844,
+    "words_qa": 38304,
+    "reading_mcq": 6407,
+    "writing_mcq": 6407,
+    "fill_mcq": 5634,
+    "synonym_mcq": 5614,
+    "usage_mcq": 5114
+  },
+  "trung_binh_do_dai_output_tu": 97.1,
+  "train_ratio": 0.8,
+  "random_seed": 42,
+  "format": "Alpaca (instruction / input / output)"
+}

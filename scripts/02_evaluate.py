@@ -47,7 +47,7 @@ REPORT_DIR = ROOT / "data" / "processed"
 def load_eval_data(path: Path, max_samples: int = 200) -> list[dict]:
     """
     Đọc dữ liệu từ file eval (không dùng file train để đảm bảo tính khách quan).
-    Mặc định chỉ lấy 200 câu hỏi để chấm nhanh (có thể tăng lên tùy ý).
+    Mặc định chỉ lấy 200 câu hỏi để chấm nhanh.
     """
     records = []
     with open(path, "r", encoding="utf-8") as f:
@@ -65,12 +65,8 @@ def load_eval_data(path: Path, max_samples: int = 200) -> list[dict]:
     return records
 
 
-# ─── 2. HÀM LOAD MODEL ĐỂ INFERENCE (DỰ ĐOÁN) ──────────────────────────────────
+# ─── 2. HÀM LOAD MODEL ĐỂ INFERENCE (DỰ ĐOÁN) ──
 def load_model(model_name_or_path: str):
-    """
-    Load mô hình ngôn ngữ (HuggingFace) để tự động giải bài.
-    Sử dụng torch.float16 và device_map="auto" để tối ưu hóa VRAM trên Colab/GPU.
-    """
     try:
         from transformers import AutoTokenizer, AutoModelForCausalLM
         import torch
@@ -80,10 +76,10 @@ def load_model(model_name_or_path: str):
         model = AutoModelForCausalLM.from_pretrained(
             model_name_or_path,
             torch_dtype=torch.float16,
-            device_map="auto", # Tự động chia tải sang GPU nếu có
+            device_map="auto",
             trust_remote_code=True,
         )
-        model.eval() # Chuyển sang chế độ inference (không train)
+        model.eval()
         return model, tokenizer
     except ImportError:
         raise ImportError(
@@ -119,8 +115,8 @@ def generate_response(model, tokenizer, instruction: str, input_text: str) -> st
     # Thiết lập tham số sinh văn bản (text generation)
     outputs = model.generate(
         **inputs,
-        max_new_tokens=300,   # Cho phép model nghĩ (CoT) đủ dài (300 từ)
-        temperature=0.3,      # Dùng nhiệt độ thấp (0.3) để model trả lời chính xác, logic
+        max_new_tokens=300,
+        temperature=0.3,
         do_sample=True,
         pad_token_id=tokenizer.eos_token_id,
     )
@@ -131,7 +127,7 @@ def generate_response(model, tokenizer, instruction: str, input_text: str) -> st
     return response.strip()
 
 
-# ─── 3. CÁC HÀM TÍNH ĐIỂM (METRICS) ──────────────────────────────────────────────
+# ─── 3. CÁC HÀM TÍNH ĐIỂM (METRICS) ──
 
 def parse_cot(text: str):
     """
@@ -149,11 +145,6 @@ def parse_cot(text: str):
 
 
 def compute_rouge_l(prediction: str, reference: str) -> float:
-    """
-    Tính điểm ROUGE-L: Đoạn văn bản tiên đoán giống đoạn văn mẫu đến mức nào.
-    Điểm từ 0.0 (không giống chút nào) đến 1.0 (giống hệt).
-    Dùng để chấm "chất lượng giải thích" của thẻ <thinking>.
-    """
     if not prediction or not reference:
         return 0.0
         
@@ -163,8 +154,6 @@ def compute_rouge_l(prediction: str, reference: str) -> float:
     if not p_tokens or not r_tokens:
         return 0.0
 
-    # Tìm chuỗi con chung dài nhất (Longest Common Subsequence)
-    # Đây là thuật toán cơ bản của ROUGE-L
     def lcs_length(a, b):
         m, n = len(a), len(b)
         dp = [[0]*(n+1) for _ in range(m+1)]
@@ -240,8 +229,7 @@ def evaluate(model, tokenizer, eval_records: list[dict], gemini_api_key: str = N
         try:
             import google.generativeai as genai
             genai.configure(api_key=gemini_api_key)
-            # Dùng flash model vì nó rẻ và rất nhanh, đủ sức chấm điểm
-            gemini_model = genai.GenerativeModel("gemini-2.5-flash")
+            gemini_model = genai.GenerativeModel("gemini-2.0-flash-lite")
             print("Đã khởi tạo xong Giám khảo Gemini API!")
         except ImportError:
             print("LỖI: Bạn chưa cài thư viện google-generativeai. Bỏ qua chấm bằng Gemini.")
@@ -274,15 +262,13 @@ def evaluate(model, tokenizer, eval_records: list[dict], gemini_api_key: str = N
         ref_thinking, ref_answer = parse_cot(reference)
 
         # 1. Chấm Format
-        # Nếu model có xuất ra được thẻ answer tức là nó tuân thủ format CoT
         if pred_answer:
             results["format_correct"] += 1
 
         # 2. Chấm Đáp Án Trắc Nghiệm (Exact Match)
         is_mcq_correct = False
-        if ref_answer:  # Chỉ chấm trắc nghiệm nếu câu hỏi có đáp án A/B/C/D
+        if ref_answer:
             results["mcq_total"] += 1
-            # Loại bỏ ký tự lạ, dấu câu để so sánh chính xác (Vd: "2" vs " 2 ")
             p_ans = re.sub(r"[^\w]", "", pred_answer.lower())
             r_ans = re.sub(r"[^\w]", "", ref_answer.lower())
             
@@ -296,7 +282,6 @@ def evaluate(model, tokenizer, eval_records: list[dict], gemini_api_key: str = N
         
         if ref_thinking:
             rouge = compute_rouge_l(pred_thinking, ref_thinking)
-            # Nếu có Gemini Key, nhờ Gemini chấm bài
             if gemini_model:
                 gemini_result = evaluate_explanation_with_gemini(instruction, input_text, ref_thinking, pred_thinking, gemini_model)
                 results["gemini_scores"].append(gemini_result["score"])
@@ -305,7 +290,6 @@ def evaluate(model, tokenizer, eval_records: list[dict], gemini_api_key: str = N
             
         results["rouge_scores"].append(rouge)
 
-        # Lưu lại vài ví dụ đầu tiên để in ra báo cáo
         if i < 10:
             sample_info = {
                 "instruction": instruction,

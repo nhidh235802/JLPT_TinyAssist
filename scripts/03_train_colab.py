@@ -1,31 +1,16 @@
-# ==============================================================================
-# HƯỚNG DẪN CHẠY TRÊN GOOGLE COLAB
-# 1. Bật GPU: Runtime -> Change runtime type -> T4 GPU (hoặc A100/L4 nếu có)
-# 2. Cài đặt Unsloth (Chạy lệnh sau trong ô đầu tiên):
-#    !pip install unsloth "xformers<0.0.27" "trl<0.9.0" peft accelerate bitsandbytes
-# 3. Kết nối Google Drive để lưu Checkpoints (chống mất data khi rớt mạng):
-#    Chạy lệnh: from google.colab import drive; drive.mount('/content/drive')
-# 4. Upload file `combined_train.jsonl` lên Colab (vào thư mục /content hoặc Drive)
-# 5. Copy toàn bộ code bên dưới vào ô tiếp theo và chạy
-# ==============================================================================
-
 import torch
 from unsloth import FastLanguageModel
 from datasets import load_dataset
-from trl import SFTTrainer
-from transformers import TrainingArguments
+from trl import SFTTrainer, SFTConfig
 
-# ─── 1. CẤU HÌNH THÔNG SỐ (HYPERPARAMETERS) ──────────────────────────────────
+# ─── 1. CẤU HÌNH THÔNG SỐ (HYPERPARAMETERS) ───────
 max_seq_length = 2048 # Độ dài tối đa của câu hỏi + câu trả lời
-dtype = None # Tự động phát hiện (float16 cho T4, bfloat16 cho Ampere)
-load_in_4bit = True # Dùng QLoRA 4-bit để cực kỳ tiết kiệm VRAM
+dtype = None
+load_in_4bit = True
 
-# Tên model HuggingFace
-# Lời khuyên: Dùng bản bnb-4bit sẽ tải nhanh hơn và chắc chắn không sập RAM:
-# model_name = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit" 
-model_name = "unsloth/Qwen2.5-7B-Instruct"
+model_name = "unsloth/Qwen2.5-7B-Instruct-bnb-4bit"
 
-# ─── 2. TẢI MODEL & TOKENIZER SIÊU NHANH BẰNG UNSLOTH ───────────────────────
+# ─── 2. TẢI MODEL & TOKENIZER BẰNG UNSLOTH ────
 print("Đang tải model (khoảng 3-4 phút)...")
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = model_name,
@@ -37,18 +22,18 @@ model, tokenizer = FastLanguageModel.from_pretrained(
 # Thêm kỹ thuật LoRA (Chỉ train 1% tham số, giữ nguyên 99% kiến thức gốc)
 model = FastLanguageModel.get_peft_model(
     model,
-    r = 16, # Càng cao càng thông minh nhưng train lâu hơn (chuẩn là 8 hoặc 16)
+    r = 16,
     target_modules = ["q_proj", "k_proj", "v_proj", "o_proj",
                       "gate_proj", "up_proj", "down_proj",],
     lora_alpha = 16,
-    lora_dropout = 0, # Unsloth tối ưu dropout = 0
-    bias = "none",    # Tối ưu hóa
-    use_gradient_checkpointing = "unsloth", # Giảm VRAM mạnh
+    lora_dropout = 0,
+    bias = "none",
+    use_gradient_checkpointing = "unsloth",
     random_state = 3407,
 )
 
-# ─── 3. CHUẨN BỊ DỮ LIỆU (DATASET) ──────────────────────────────────────────
-# Định dạng Alpaca chuẩn (giống hệt trong helper.py của chúng ta)
+# ─── 3. CHUẨN BỊ DỮ LIỆU (DATASET) ────
+# Định dạng Alpaca chuẩn
 alpaca_prompt = """### Instruction:
 {}
 
@@ -58,7 +43,7 @@ alpaca_prompt = """### Instruction:
 ### Response:
 {}"""
 
-EOS_TOKEN = tokenizer.eos_token # Dấu chấm hết câu của AI
+EOS_TOKEN = tokenizer.eos_token
 def format_prompts(examples):
     instructions = examples["instruction"]
     inputs       = examples["input"]
@@ -73,21 +58,21 @@ print("Đang tải file data combined_train.jsonl...")
 dataset = load_dataset("json", data_files={"train": "/content/drive/MyDrive/ML_DL/data/processed/combined_train.jsonl"}, split="train")
 dataset = dataset.map(format_prompts, batched = True,)
 
-# ─── 4. BẮT ĐẦU TRAINING LÒ ĐAN ──────────────────────────────────────────────
+# ─── 4. BẮT ĐẦU TRAINING ─────
 trainer = SFTTrainer(
     model = model,
-    tokenizer = tokenizer,
+    processing_class = tokenizer,
     train_dataset = dataset,
-    dataset_text_field = "text",
-    max_seq_length = max_seq_length,
-    dataset_num_proc = 2,
-    packing = False, # Có thể để True nếu muốn gộp câu để train nhanh hơn
-    args = TrainingArguments(
-        per_device_train_batch_size = 2, # Card VRAM yếu thì để 2, mạnh (24GB) thì để 4 hoặc 8
-        gradient_accumulation_steps = 4, # Mô phỏng batch size lớn
+    args = SFTConfig(
+        dataset_text_field = "text",
+        max_seq_length = max_seq_length,
+        dataset_num_proc = 2,
+        packing = True,
+        per_device_train_batch_size = 2,
+        gradient_accumulation_steps = 4,
         warmup_steps = 5,
-        max_steps = 500, # BẬT CÁI NÀY ĐỂ TEST NHANH (Train 500 bước). Nếu muốn train thật, TẮT dòng này đi và bật num_train_epochs = 1
-        # num_train_epochs = 1, # Train toàn bộ data đúng 1 vòng
+        max_steps = 500,
+        num_train_epochs = 1,
         learning_rate = 2e-4,
         fp16 = not torch.cuda.is_bf16_supported(),
         bf16 = torch.cuda.is_bf16_supported(),
@@ -96,23 +81,20 @@ trainer = SFTTrainer(
         weight_decay = 0.01,
         lr_scheduler_type = "linear",
         seed = 3407,
-        
-        # --- CẤU HÌNH LƯU CHECKPOINTS DỰ PHÒNG ---
+        # Lưu checkpoint
         output_dir = "/content/drive/MyDrive/ML_DL/outputs",
         save_strategy = "steps",
-        save_steps = 100,        # Cứ 100 bước (steps) thì lưu lại 1 lần
-        save_total_limit = 2,    # Chỉ giữ lại 2 checkpoint gần nhất để tránh đầy ổ cứng
+        save_steps = 100,
+        save_total_limit = 2,
     ),
 )
 
 print("BẮT ĐẦU TRAINING...")
-# Nếu bị ngắt giữa chừng, đổi thành trainer.train(resume_from_checkpoint=True) để chạy tiếp
-trainer_stats = trainer.train()
+trainer_stats = trainer.train(resume_from_checkpoint=True)
 
-# ─── 5. LƯU MÔ HÌNH SAU KHI TRAIN ────────────────────────────────────────────
-# Lưu kết quả LoRA (Nhẹ, khoảng 100-300MB)
+# ─── 5. LƯU MÔ HÌNH SAU KHI TRAIN ────
 print("Đang lưu model LoRA...")
-model.save_pretrained("jlpt-model-lora")
-tokenizer.save_pretrained("jlpt-model-lora")
+model.save_pretrained("/content/drive/MyDrive/ML_DL/jlpt-model-lora")
+tokenizer.save_pretrained("/content/drive/MyDrive/ML_DL/jlpt-model-lora")
 
-print("Hoàn tất! Hãy download thư mục 'jlpt-model-lora' về máy.")
+print("Hoàn tất! Model LoRA đã được lưu vào Google Drive của bạn.")

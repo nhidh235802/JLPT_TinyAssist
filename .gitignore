@@ -6,11 +6,11 @@ __pycache__/
 .pytest_cache/
 
 # 2. Dữ liệu
-data/
-*.csv
-*.json
-*.jsonl
-*.txt
+#data/
+#*.csv
+#*.json
+#*.jsonl
+#*.txt
 
 # 3. Trọng số mô hình và Checkpoints
 models/
