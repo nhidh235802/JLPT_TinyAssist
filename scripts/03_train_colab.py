@@ -70,8 +70,7 @@ def format_prompts(examples):
     return { "text" : texts, }
 
 print("Đang tải file data combined_train.jsonl...")
-# Nhớ upload file combined_train.jsonl lên thư mục hiện tại của Colab
-dataset = load_dataset("json", data_files={"train": "combined_train.jsonl"}, split="train")
+dataset = load_dataset("json", data_files={"train": "/content/drive/MyDrive/ML_DL/data/processed/combined_train.jsonl"}, split="train")
 dataset = dataset.map(format_prompts, batched = True,)
 
 # ─── 4. BẮT ĐẦU TRAINING LÒ ĐAN ──────────────────────────────────────────────
@@ -99,9 +98,7 @@ trainer = SFTTrainer(
         seed = 3407,
         
         # --- CẤU HÌNH LƯU CHECKPOINTS DỰ PHÒNG ---
-        # Nên trỏ output_dir vào Google Drive để Colab có sập thì vẫn còn Checkpoint
-        # output_dir = "/content/drive/MyDrive/jlpt-checkpoints",
-        output_dir = "outputs",
+        output_dir = "/content/drive/MyDrive/ML_DL/outputs",
         save_strategy = "steps",
         save_steps = 100,        # Cứ 100 bước (steps) thì lưu lại 1 lần
         save_total_limit = 2,    # Chỉ giữ lại 2 checkpoint gần nhất để tránh đầy ổ cứng

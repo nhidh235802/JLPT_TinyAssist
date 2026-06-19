@@ -424,7 +424,12 @@ if __name__ == "__main__":
 
     # 5. Lưu báo cáo ra file JSON để tham khảo sau
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
-    report_file = REPORT_DIR / "eval_report.json"
+    import datetime
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    # Lấy tên model (bỏ phần đường dẫn) để đặt tên file cho dễ phân biệt
+    model_short_name = args.model.split("/")[-1]
+    report_file = REPORT_DIR / f"eval_{model_short_name}_{timestamp}.json"
+    
     with open(report_file, "w", encoding="utf-8") as f:
         json.dump(summary, f, ensure_ascii=False, indent=2)
     print(f"\nĐã lưu báo cáo chi tiết vào {report_file}")
