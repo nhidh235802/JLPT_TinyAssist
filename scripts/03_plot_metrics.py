@@ -54,9 +54,17 @@ def plot_metrics(trainer_state_path: str, output_path: str = "training_metrics.p
 
     plt.title('Training and Validation Loss Over Time')
     plt.xlabel('Training Steps')
-    plt.ylabel('Loss (Sai số - Càng thấp càng thông minh)')
+    plt.ylabel('Loss')
+    
+    # Chia nhỏ trục Y để dễ nhìn hơn
+    import matplotlib.ticker as ticker
+    plt.gca().yaxis.set_major_locator(ticker.MultipleLocator(0.1))  # Vạch chính cách nhau 0.1
+    plt.gca().yaxis.set_minor_locator(ticker.MultipleLocator(0.05)) # Vạch phụ cách nhau 0.05
+    
     plt.legend()
-    plt.grid(True, linestyle='--', alpha=0.6)
+    # Bật lưới cho cả vạch chính (0.1) và vạch phụ (0.05)
+    plt.grid(True, which='major', linestyle='-', alpha=0.6)
+    plt.grid(True, which='minor', linestyle=':', alpha=0.4)
     
     plt.tight_layout()
     plt.savefig(output_path, dpi=300)

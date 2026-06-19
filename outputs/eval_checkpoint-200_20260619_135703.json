@@ -1,0 +1,12 @@
+{
+  "tong_so_cau": 15,
+  "ty_le_tuan_thu_format": 93.33,
+  "do_chinh_xac_trac_nghiem": 78.57,
+  "diem_giai_thich_ROUGE": 0.8853,
+  "chi_tiet_ROUGE": {
+    ">=0.8 (Giai thich xuat sac)": 11,
+    "0.5-0.8 (Giai thich tot)": 4,
+    "0.3-0.5 (Giai thich tam)": 0,
+    "<0.3 (Giai thich te/lac de)": 0
+  }
+}
