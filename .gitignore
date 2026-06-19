@@ -1,0 +1,34 @@
+# 1. Môi trường ảo Python và Cache
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# 2. Dữ liệu
+data/
+*.csv
+*.json
+*.jsonl
+*.txt
+
+# 3. Trọng số mô hình và Checkpoints
+models/
+checkpoints/
+*.bin
+*.pt
+*.pth
+*.safetensors
+*.h5
+
+# 4. Biến môi trường và thông tin nhạy cảm
+.env
+.env.*
+*.log
+
+# 5. Notebook Checkpoints (Sinh ra khi dùng Jupyter/Colab)
+.ipynb_checkpoints/
+
+# 6. Các file hệ thống ẩn của hệ điều hành
+.DS_Store
+Thumbs.db
